@@ -15,6 +15,7 @@ def image_transforms(shape, jittering):
     return {'train': train_transforms}
 
 class GetData(Dataset):
+    #TODO(David): this needs to be rewritten
     def __init__(self, config, transforms=None):
         """
         Get the list containing all images and labels.
@@ -31,9 +32,9 @@ class GetData(Dataset):
         self.config = config
         self.dataset = dataset
         self.root = config.train_root
-        
+
         self.transforms = transforms
-	
+
     def __getitem__(self, index):
         """
         Return image'data and its label.
@@ -41,8 +42,8 @@ class GetData(Dataset):
         img_path = self.dataset[index]
         img_file = self.root + img_path
         img = Image.open(img_file)
-        
-        # image.mode == 'L' means the image is in gray scale 
+
+        # image.mode == 'L' means the image is in gray scale
         if img.mode == 'L':
             img_new = Image.new("RGB", img.size)
             img_new.paste(img)

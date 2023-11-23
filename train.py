@@ -29,28 +29,28 @@ class Trainer(object):
         self.gpu = config.gpu
         self.ckpt_dir = config.ckpt_dir
         self.ckpt_name = '{}-{}'.format(config.ckpt_name, config.seed)
-		
+
         # build model
         self.model = PointModel(is_test=False)
-        
+
         # training on GPU
         if self.use_gpu:
             torch.cuda.set_device(self.gpu)
             self.model.cuda()
 
-        print('Number of model parameters: {:,}'.format(sum([p.data.nelement() for p in self.model.parameters()])))	
-        
+        print('Number of model parameters: {:,}'.format(sum([p.data.nelement() for p in self.model.parameters()])))
+
         # build loss functional
         self.loss_func = KeypointLoss(config)
-        
+
         # build optimizer and scheduler
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         self.lr_scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[4, 8], gamma=self.lr_factor)
 
         # resume
         if int(self.config.start_epoch) > 0:
-            self.config.start_epoch, self.model, self.optimizer, self.lr_scheduler = self.load_checkpoint(int(self.config.start_epoch), self.model, self.optimizer, self.lr_scheduler)    
-    
+            self.config.start_epoch, self.model, self.optimizer, self.lr_scheduler = self.load_checkpoint(int(self.config.start_epoch), self.model, self.optimizer, self.lr_scheduler)
+
     def train(self):
         print("\nTrain on {} samples".format(self.num_train))
         self.save_checkpoint(0, self.model, self.optimizer, self.lr_scheduler)
@@ -61,23 +61,34 @@ class Trainer(object):
             if self.lr_scheduler:
                 self.lr_scheduler.step()
             self.save_checkpoint(epoch+1, self.model, self.optimizer, self.lr_scheduler)
-            
+
     def train_one_epoch(self, epoch):
         self.model.train()
         for (i, data) in enumerate(tqdm(self.train_loader)):
 
             if self.use_gpu:
-                source_img = data['image_aug'].cuda()
-                target_img = data['image'].cuda()
-                homography = data['homography'].cuda()
-            
-            source_img = Variable(source_img)
-            target_img = Variable(target_img)
-            homography = Variable(homography)
-            
+                rgb1 = data['rgb1'].cuda()
+                depth1 = data['depth1'].cuda()
+                rgb2 = data['rgb2'].cuda()
+                depth2 = data['depth2'].cuda()
+                rot1 = data['rot1'].cuda()
+                translate1 = data['translate1'].cuda()
+                rot2 = data['rot2'].cuda()
+                translate2 = data['translate2'].cuda()
+
+            # TODO(David): Variable is supposed to be depreacated
+            rgb1 = Variable(rgb1)
+            rgb2 = Variable(rgb2)
+            depth1 = Variable(depth1)
+            depth2 = Variable(depth)
+            rot1 = Variable(rot1)
+            translate1 = Variable(translate1)
+            rot2 = Variable(rot2)
+            translate2 = Variable(translate2)
+
             # forward propogation
-            output = self.model(source_img, target_img, homography)
-            
+            output = self.model(rgb1, rgb2, depth1, depth2, rot1, translate1, rot2, translate2)
+
             # compute loss
             loss, loc_loss, desc_loss, score_loss, corres_loss = self.loss_func(output)
 
@@ -115,15 +126,4 @@ class Trainer(object):
 
         print("[*] Loaded {} checkpoint @ epoch {}".format(filename, ckpt['epoch']))
 
-        return epoch, model, optimizer, lr_scheduler				        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+        return epoch, model, optimizer, lr_scheduler
