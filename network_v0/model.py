@@ -125,10 +125,6 @@ class PointModel(nn.Module):
             B, _, hc, wc = source_score.shape
             device = source_score.device
 
-            coor_change_rot, coor_change_trans = coor_change(arges[2], arg2[3], args[4], args[5])
-
-            # HERE HERE HERE
-
             # Normalize the coordinates from ([0, h], [0, w]) to ([0, 1], [0, 1]).
             source_coord_norm = source_coord.clone()
             source_coord_norm[:, 0] = (source_coord_norm[:, 0] / (float(W - 1) / 2.)) - 1.
@@ -140,13 +136,24 @@ class PointModel(nn.Module):
             target_coord_norm[:, 1] = (target_coord_norm[:, 1] / (float(H - 1) / 2.)) - 1.
             target_coord_norm = target_coord_norm.permute(0, 2, 3, 1)
 
-            target_coord_warped_norm = warp_homography_batch(source_coord_norm, args[2])
-            target_coord_warped = target_coord_warped_norm.clone()
+            if len(args) == 6: # means it is multiview, and we just imitate the "else" branch
+              coor_change_rot, coor_change_trans = coor_change(arges[2], arg2[3], args[4], args[5])
+              tmp = source_coord.clone()
+              tmp = tmp.permute(0, 2, 3, 1)
+              target_coord_warped = warp_batch(tmp, all_source_depth, coor_change_rot, coor_change_trans, intrinsic)
+              target_coord_warped = target_coord_warped.permute(0, 3, 1, 2)
+              target_coord_warped_norm = target_coord_warped.clone()
+              target_coord_warped_norm[:, 0] = (source_coord_warped_norm[:, 0] / (float(W - 1) / 2.)) - 1.
+              target_coord_warped_norm[:, 1] = (source_coord_warped_norm[:, 1] / (float(H - 1) / 2.)) - 1.
+              target_coord_warped_norm = target_coord_warped.permute(0, 2, 3, 1)
+            else: # means it is a homography
+              target_coord_warped_norm = warp_homography_batch(source_coord_norm, args[2])
+              target_coord_warped = target_coord_warped_norm.clone()
 
-            # de-normlize the coordinates
-            target_coord_warped[:, :, :, 0] = (target_coord_warped[:, :, :, 0] + 1) * (float(W - 1) / 2.)
-            target_coord_warped[:, :, :, 1] = (target_coord_warped[:, :, :, 1] + 1) * (float(H - 1) / 2.)
-            target_coord_warped = target_coord_warped.permute(0, 3, 1, 2)
+              # de-normlize the coordinates
+              target_coord_warped[:, :, :, 0] = (target_coord_warped[:, :, :, 0] + 1) * (float(W - 1) / 2.)
+              target_coord_warped[:, :, :, 1] = (target_coord_warped[:, :, :, 1] + 1) * (float(H - 1) / 2.)
+              target_coord_warped = target_coord_warped.permute(0, 3, 1, 2)
 
             # Border mask
             border_mask_ori = torch.ones(B, hc, wc)
