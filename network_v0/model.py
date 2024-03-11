@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 import torchvision.transforms as tvf
 
 from modules import InterestPointModule, CorrespondenceModule
@@ -60,56 +60,39 @@ def warp_batch(sources, all_source_depth, coor_change_rot, coor_change_trans, in
     for b in range(B):
         source = sources[b].clone()
         source = source.view(-1,2) # height, width
-        print('begining source = ', source)
-        # TODO [1] or [0] ? which coordinate is with coef 1 ?
         flatten_coors = torch.tensor([all_source_depth[b].size()[1], 1])
-        print('flatten size',flatten_coors.size(), 'source size', source.size())
         p = source
         p = p.to(torch.int64)
         p = torch.matmul(p, flatten_coors.unsqueeze(1))[:,0]
-        print('p size = ', p.size())
-        print(p)
         source = torch.cat((source, torch.ones(source.size()[0], 1)), 1)
-        print('b = ', b, 'source size = ', source.size())
         source = torch.matmul(source, inv_intrinsic.t()) #<=
-
         H_times_W = all_source_depth[b].size()[0] *  all_source_depth[b].size()[1]
-        print('H_times_W =', H_times_W)
         flattened_depth = all_source_depth[b].view(H_times_W)
-        print('flattened_depth.size() = ', flattened_depth.size())
         depth = torch.gather(flattened_depth, 0, p)
-        print('depth = ', depth)
-        print('source = ', source)
         depth.div_(source[:,2])
         source.mul_(depth.unsqueeze(1))
-
-        print('current source = ', source)
-        # ==== =Correct up to here !
-        print('trans = ', coor_change_trans)
         source = torch.addmm(torch.stack(source.size()[0] * [coor_change_trans[b]]).t(), coor_change_rot[b], source.t()).t()
-        print('post addmm source = ', source)
-        print('intrinsic = ', intrinsic)
         source = torch.matmul(source, intrinsic.t())
         source.mul_(1/source[:,2].unsqueeze(1))
         source = source[:,:2].contiguous().view(H,W,2)
-        print('hopefully targe = ', source)
         warped_sources.append(source)
     return torch.stack(warped_sources, dim=0)
 
 def coor_change(rot1, trans1, rot2, trans2):
-  """
-  Compute   pose2^{-1} X pose1
-  """
-  return torch.matmul(rot2.t(), rot1), torch.matmul(rot2.t(), trans1 - trans2)
+    """
+    Compute   pose2^{-1} X pose1
+    """
+    return torch.matmul(rot2.t(), rot1), torch.matmul(rot2.t(), trans1 - trans2)
 
 class PointModel(nn.Module):
-    def __init__(self, intrinsic_cam_matrix, is_test=True): # TODO: add intrinsic
+    def __init__(self, intrinsic_cam_matrix=None, is_test=True): # TODO: add intrinsic
         super(PointModel, self).__init__()
         self.is_test = is_test
         self.interestpoint_module = InterestPointModule(is_test=self.is_test)
         self.correspondence_module = CorrespondenceModule()
         self.norm_rgb = tvf.Normalize(mean=[0.5, 0.5, 0.5], std=[0.225, 0.225, 0.225])
-        self.intrinsic_cam_matrix = intrinsic_cam_matrix
+        if intrinsic_cam_matrix is not None:
+            self.intrinsic_cam_matrix = intrinsic_cam_matrix
 
     def forward(self, *args):
         if self.is_test:
@@ -137,23 +120,24 @@ class PointModel(nn.Module):
             target_coord_norm = target_coord_norm.permute(0, 2, 3, 1)
 
             if len(args) == 6: # means it is multiview, and we just imitate the "else" branch
-              coor_change_rot, coor_change_trans = coor_change(arges[2], arg2[3], args[4], args[5])
-              tmp = source_coord.clone()
-              tmp = tmp.permute(0, 2, 3, 1)
-              target_coord_warped = warp_batch(tmp, all_source_depth, coor_change_rot, coor_change_trans, intrinsic)
-              target_coord_warped = target_coord_warped.permute(0, 3, 1, 2)
-              target_coord_warped_norm = target_coord_warped.clone()
-              target_coord_warped_norm[:, 0] = (source_coord_warped_norm[:, 0] / (float(W - 1) / 2.)) - 1.
-              target_coord_warped_norm[:, 1] = (source_coord_warped_norm[:, 1] / (float(H - 1) / 2.)) - 1.
-              target_coord_warped_norm = target_coord_warped.permute(0, 2, 3, 1)
+                coor_change_rot, coor_change_trans = coor_change(args[2], args[3], args[4], args[5])
+                tmp = source_coord.clone()
+                tmp = tmp.permute(0, 2, 3, 1)
+                target_coord_warped = warp_batch(tmp, all_source_depth, coor_change_rot, coor_change_trans,
+                                                 self.intrinsic_cam_matrix)
+                target_coord_warped = target_coord_warped.permute(0, 3, 1, 2)
+                target_coord_warped_norm = target_coord_warped.clone()
+                target_coord_warped_norm[:, 0] = (source_coord_warped_norm[:, 0] / (float(W - 1) / 2.)) - 1.
+                target_coord_warped_norm[:, 1] = (source_coord_warped_norm[:, 1] / (float(H - 1) / 2.)) - 1.
+                target_coord_warped_norm = target_coord_warped.permute(0, 2, 3, 1)
             else: # means it is a homography
-              target_coord_warped_norm = warp_homography_batch(source_coord_norm, args[2])
-              target_coord_warped = target_coord_warped_norm.clone()
+                target_coord_warped_norm = warp_homography_batch(source_coord_norm, args[2])
+                target_coord_warped = target_coord_warped_norm.clone()
 
-              # de-normlize the coordinates
-              target_coord_warped[:, :, :, 0] = (target_coord_warped[:, :, :, 0] + 1) * (float(W - 1) / 2.)
-              target_coord_warped[:, :, :, 1] = (target_coord_warped[:, :, :, 1] + 1) * (float(H - 1) / 2.)
-              target_coord_warped = target_coord_warped.permute(0, 3, 1, 2)
+                # de-normlize the coordinates
+                target_coord_warped[:, :, :, 0] = (target_coord_warped[:, :, :, 0] + 1) * (float(W - 1) / 2.)
+                target_coord_warped[:, :, :, 1] = (target_coord_warped[:, :, :, 1] + 1) * (float(H - 1) / 2.)
+                target_coord_warped = target_coord_warped.permute(0, 3, 1, 2)
 
             # Border mask
             border_mask_ori = torch.ones(B, hc, wc)

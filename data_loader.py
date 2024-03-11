@@ -15,7 +15,6 @@ def image_transforms(shape, jittering):
     return {'train': train_transforms}
 
 class GetData(Dataset):
-    #TODO(David): this needs to be rewritten
     def __init__(self, config, transforms=None):
         """
         Get the list containing all images and labels.

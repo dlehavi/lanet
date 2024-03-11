@@ -1,6 +1,6 @@
 import os
 import torch
-import torch.optim as optim
+from torch import optim
 from tqdm import tqdm
 
 from torch.autograd import Variable
@@ -31,7 +31,10 @@ class Trainer(object):
         self.ckpt_name = '{}-{}'.format(config.ckpt_name, config.seed)
 
         # build model
-        self.model = PointModel(is_test=False)
+        if config.image_pairs_meta_data_csv_file == '':
+            self.model = PointModel(intrinsic_cam_matrix=None, is_test=False)
+        else:
+            self.model = PointModel(intrinsic_cam_matrix=config.intrinsic_cam_matrix, is_test=False)
 
         # training on GPU
         if self.use_gpu:
@@ -67,27 +70,40 @@ class Trainer(object):
         for (i, data) in enumerate(tqdm(self.train_loader)):
 
             if self.use_gpu:
-                rgb1 = data['rgb1'].cuda()
-                depth1 = data['depth1'].cuda()
-                rgb2 = data['rgb2'].cuda()
-                depth2 = data['depth2'].cuda()
-                rot1 = data['rot1'].cuda()
-                translate1 = data['translate1'].cuda()
-                rot2 = data['rot2'].cuda()
-                translate2 = data['translate2'].cuda()
+                if self.config.image_pairs_meta_data_csv_file == '':
+                    source_img = data['image_aug'].cuda()
+                    target_img = data['image'].cuda()
+                    homography = data['homography'].cuda()
+                else:
+                    rgb1 = data['rgb1'].cuda()
+                    depth1 = data['depth1'].cuda()
+                    rgb2 = data['rgb2'].cuda()
+                    depth2 = data['depth2'].cuda()
+                    rot1 = data['rot1'].cuda()
+                    translate1 = data['translate1'].cuda()
+                    rot2 = data['rot2'].cuda()
+                    translate2 = data['translate2'].cuda()
 
             # TODO(David): Variable is supposed to be depreacated
-            rgb1 = Variable(rgb1)
-            rgb2 = Variable(rgb2)
-            depth1 = Variable(depth1)
-            depth2 = Variable(depth)
-            rot1 = Variable(rot1)
-            translate1 = Variable(translate1)
-            rot2 = Variable(rot2)
-            translate2 = Variable(translate2)
+            if self.config.image_pairs_meta_data_csv_file == '':
+                source_img = Variable(source_img)
+                target_img = Variable(target_img)
+                homography = Variable(homography)
+            else:
+                rgb1 = Variable(rgb1)
+                rgb2 = Variable(rgb2)
+                depth1 = Variable(depth1)
+                depth2 = Variable(depth2)
+                rot1 = Variable(rot1)
+                translate1 = Variable(translate1)
+                rot2 = Variable(rot2)
+                translate2 = Variable(translate2)
 
             # forward propogation
-            output = self.model(rgb1, rgb2, depth1, depth2, rot1, translate1, rot2, translate2)
+            if  self.config.image_pairs_meta_data_csv_file == '':
+                output = self.model(source_img, target_img, homography)
+            else:
+                output = self.model(rgb1, rgb2, depth1, depth2, rot1, translate1, rot2, translate2)
 
             # compute loss
             loss, loc_loss, desc_loss, score_loss, corres_loss = self.loss_func(output)
@@ -103,9 +119,8 @@ class Trainer(object):
                         "loss={:.4f} "\
                         .format((epoch + 1), i, self.lr, loc_loss.data, desc_loss.data, score_loss.data, corres_loss.data, loss.data)
 
-            if((i % self.display) == 0):
+            if (i % self.display) == 0:
                 print(msg_batch)
-        return
 
     def save_checkpoint(self, epoch, model, optimizer, lr_scheduler):
         filename = self.ckpt_name + '_' + str(epoch) + '.pth'

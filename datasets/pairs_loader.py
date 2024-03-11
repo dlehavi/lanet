@@ -1,7 +1,9 @@
-import panda as pd
+import pandas as pd
 import cv2
 import numpy as np
-
+from torch.utils.data import Dataset, DataLoader
+import torch
+import os
 class SyntheticImagesDataset(Dataset):
     def __init__(self, meta_data_csv_path: str, root_dir: str):
         """
@@ -11,7 +13,7 @@ class SyntheticImagesDataset(Dataset):
             depth is 16 bit
             root_dir: Directory with all the images.
         """
-        self.meta_data = pd.read_csv(csv_file)
+        self.meta_data = pd.read_csv(meta_data_csv_file)
         self.root_dir = root_dir
 
     def __len__(self):
@@ -26,5 +28,20 @@ class SyntheticImagesDataset(Dataset):
         rot2 = np.array([self.meta_data.iloc[idx, i] for i in range(16, 25)])
         translate2 = np.array([self.meta_data.iloc[idx, i] for i in range(25, 28)])
         sample = {'rgb1': images[0], 'rgb2': images[1], 'depth1': images[2], 'depth2': images[3],
-                  'rot1': rot1, 'translate1': translate1, 'rot2': rot2, 'translate2': transate2}
+                  'rot1': rot1, 'translate1': translate1, 'rot2': rot2, 'translate2': translate2}
         return sample
+
+def get_data_loader(config,
+                    sampler=None,
+                    drop_last=True,
+                    ):
+    dataset = SyntheticImagesDataset(config.image_pairs_meta_data_csv_file, config.train_root)
+    train_loader = DataLoader(dataset,
+                              batch_size=config.batch_size,
+                              shuffle=config.shuffle,
+                              sampler=sampler,
+                              num_workers=config.num_workers,
+                              pin_memory=config.pin_memory,
+                              drop_last=drop_last
+                              )
+    return train_loader

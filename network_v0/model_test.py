@@ -42,23 +42,19 @@ def one_warp_batch_test():
   # there is a default plan at z = 0
   image_H = 2 * random.randint(50, 100)
   image_W = 2 * random.randint(100, 150)
-  B = 1 # random.randint(5, 10)
-  source_H = 2 # random.randint(10, 15)
-  source_W = 3 # random.randint(15, 20)
-  print(B, source_H, source_W, image_H, image_W)
+  B = random.randint(2, 3)
+  source_H = random.randint(5, 7)
+  source_W = random.randint(11, 13)
   # it seems we work with row major
   intrinsic = torch.tensor([[image_H, 0, 0], [0, image_W, 0], [image_H / 2., image_W / 2. , 1]]).t()
   intrinsic_inv = torch.inverse(intrinsic)
-  print('intrinsic = ', intrinsic)
   # ij is 3d, but flatenned to 2
   ij = torch.tensor([[(float(i), float(j), float(1))
                       for j in range(-image_W // 2, image_W // 2)]
                      for i in range(-image_H // 2, image_H // 2)])
   # in the line below the first two entries of the size should be image_H, image_W
-  print('ij shape before review ', ij.size(), image_H, image_W)
   ij = ij.view(-1, 3)
   ij = torch.matmul(ij, intrinsic_inv.t())
-  print(ij.size())
   sources = []
   targets = []
   sources_depth = []
@@ -82,41 +78,34 @@ def one_warp_batch_test():
     for _ in range(source_H):
       for _ in range(source_W):
         pt = torch.tensor((random.uniform(-1, 1), random.uniform(-1, 1), 0))
-        print('pt = ', pt)
-        print('pre source', torch.addmv(inv_trans1, rot1.t(), pt))
-        print('pre target', torch.addmv(inv_trans2, rot2.t(), pt))
         source_pt = torch.matmul(intrinsic, torch.addmv(inv_trans1, rot1.t(), pt))
         target_pt = torch.matmul(intrinsic, torch.addmv(inv_trans2, rot2.t(), pt))
-        print('source_pt = ', source_pt, 'target_pt =', target_pt)
         # TODO: should I interchange x,y here ?
         sources.append(torch.tensor([source_pt[0] / source_pt[2], source_pt[1] / source_pt[2]]))
         targets.append(torch.tensor([target_pt[0] / target_pt[2], target_pt[1] / target_pt[2]]))
-    print('initial sources = ', sources)
-    print('initial targets = ', targets)
-    print('inv trans 1', inv_trans1.size(), 'inv trans 2',inv_trans2.size())
-    print('ij size = ', ij.size())
     # computing the depth
     # intrinsic * pose^{-1} * pt = (ptojectively) (i : j : 1)^t
     # hence, if we set V:=intrinsic^{-1}(i, j, 1)^t = (a : b : c), and since the image is a wall at z=0
     # we have R(a', b', depth)=[?, ?, 0] - T where (a', b', depth) = depth/c (a, b, c)
     # I.e. (depth/c) RV=[?,?,0] - T or
     # (depth/c) <R_3, V> = -T_3, or depth = -cT_3 / <R_3,V>
-#    print('====>', torch.matmul(ij, rot1[2, :].t())[:7])
     source_depth = -trans1[2] * torch.div(ij[:,2], torch.matmul(ij, rot1[2, :].t()))
     target_depth = -trans2[2] * torch.div(ij[:,2], torch.matmul(ij, rot2[2, :].t()))
-    print(source_depth.size(), target_depth.size())
     sources_depth.append(source_depth.view(image_H, image_W))
     targets_depth.append(target_depth.view(image_H, image_W))
 
   out = warp_batch(torch.stack(sources, dim=0).view(B, source_H, source_W, 2),
                    torch.stack(sources_depth, dim=0),
                    coor_change_rot, coor_change_trans, intrinsic)
-  print('done')
+  targets = torch.stack(targets, dim=0).view(B, source_H, source_W, 2)
+  out = out - targets
+  print('min = ', torch.min(out).item(), ', max = ', torch.max(out).item(), ', norm/size = ',
+        torch.norm(out).item() / (B * source_H * source_W))
   # verify that the results are the same.
 
 def main():
-  print('here')
-  one_warp_batch_test()
+  for test in range(5):
+    one_warp_batch_test()
 
 if __name__ == '__main__':
   main()

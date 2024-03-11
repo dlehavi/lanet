@@ -29,6 +29,10 @@ traindata_arg.add_argument('--image_shape', type=tuple, default=(240, 320),
                             help='')
 traindata_arg.add_argument('--jittering', type=tuple, default=(0.5, 0.5, 0.2, 0.05),
                             help='')
+traindata_arg.add_argument('--image_pairs_meta_data_csv_file', type-str, default='',
+                           help='# use pairs of images with known locations')
+traindata_arg.add_argument('--intrinsic_cam_matrix', type=tuple, default=(0.0, 0.0, 0.0, 0.0),
+                           help='# fx, fy, cx, cy')
 
 # data storage
 storage_arg = add_argument_group('Storage')
@@ -44,9 +48,9 @@ train_arg.add_argument('--max_epoch', type=int, default=12,
 train_arg.add_argument('--init_lr', type=float, default=3e-4,
                         help='Initial learning rate value.')
 train_arg.add_argument('--lr_factor', type=float, default=0.5,
-                        help='Reduce learning rate value.')	
+                        help='Reduce learning rate value.')
 train_arg.add_argument('--momentum', type=float, default=0.9,
-                        help='Nesterov momentum value.')			   
+                        help='Nesterov momentum value.')
 train_arg.add_argument('--display', type=int, default=50,
                         help='')
 
@@ -62,17 +66,17 @@ loss_arg.add_argument('--corres_weight', type=float, default=.5,
                         help='')
 loss_arg.add_argument('--corres_threshold', type=int, default=4.,
                         help='')
-					   
+
 # other params
 misc_arg = add_argument_group('Misc.')
 misc_arg.add_argument('--use_gpu', type=str2bool, default=True,
                         help="Whether to run on the GPU.")
 misc_arg.add_argument('--gpu', type=int, default=0,
-                        help="Which GPU to run on.")										  
+                        help="Which GPU to run on.")
 misc_arg.add_argument('--seed', type=int, default=1001,
-                        help='Seed to ensure reproducibility.')					  
+                        help='Seed to ensure reproducibility.')
 misc_arg.add_argument('--ckpt_dir', type=str, default='./checkpoints',
-                        help='Directory in which to save model checkpoints.')					  
+                        help='Directory in which to save model checkpoints.')
 
 def get_config():
     config, unparsed = parser.parse_known_args()
