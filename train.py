@@ -41,18 +41,21 @@ class Trainer(object):
             torch.cuda.set_device(self.gpu)
             self.model.cuda()
 
-        print('Number of model parameters: {:,}'.format(sum([p.data.nelement() for p in self.model.parameters()])))
+        print('Number of model parameters: {:,}'.format(
+          sum([p.data.nelement() for p in self.model.parameters()])))
 
         # build loss functional
         self.loss_func = KeypointLoss(config)
 
         # build optimizer and scheduler
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
-        self.lr_scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[4, 8], gamma=self.lr_factor)
+        self.lr_scheduler = optim.lr_scheduler.MultiStepLR(
+          self.optimizer, milestones=[4, 8], gamma=self.lr_factor)
 
         # resume
         if int(self.config.start_epoch) > 0:
-            self.config.start_epoch, self.model, self.optimizer, self.lr_scheduler = self.load_checkpoint(int(self.config.start_epoch), self.model, self.optimizer, self.lr_scheduler)
+            self.config.start_epoch, self.model, self.optimizer, self.lr_scheduler = self.load_checkpoint(
+              int(self.config.start_epoch), self.model, self.optimizer, self.lr_scheduler)
 
     def train(self):
         print("\nTrain on {} samples".format(self.num_train))
@@ -117,7 +120,8 @@ class Trainer(object):
             msg_batch = "Epoch:{} Iter:{} lr:{:.4f} "\
                         "loc_loss={:.4f} desc_loss={:.4f} score_loss={:.4f} corres_loss={:.4f} "\
                         "loss={:.4f} "\
-                        .format((epoch + 1), i, self.lr, loc_loss.data, desc_loss.data, score_loss.data, corres_loss.data, loss.data)
+                        .format((epoch + 1), i, self.lr, loc_loss.data, desc_loss.data,
+                                score_loss.data, corres_loss.data, loss.data)
 
             if (i % self.display) == 0:
                 print(msg_batch)

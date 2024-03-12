@@ -1,0 +1,6 @@
+[FORMAT]
+docstring-min-length=4
+good-names=B,H,V,W
+
+[TYPECHECK]
+generated-members=cv

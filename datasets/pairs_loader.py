@@ -1,19 +1,21 @@
+import os
 import pandas as pd
 import cv2
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 import torch
-import os
+
 class SyntheticImagesDataset(Dataset):
     def __init__(self, meta_data_csv_path: str, root_dir: str):
         """
         Arguments:
-            meta_data_csv_path (string): Path to the csv file: rgb1_name, rgb2_name, depth1_name, depth2_name,
-                                                     rot + translate 1 (12 numbers), rot + translate 2 (12 numbers)
+            meta_data_csv_path (string):
+              Path to the csv file: rgb1_name, rgb2_name, depth1_name, depth2_name,
+              rot + translate 1 (12 numbers), rot + translate 2 (12 numbers)
             depth is 16 bit
             root_dir: Directory with all the images.
         """
-        self.meta_data = pd.read_csv(meta_data_csv_file)
+        self.meta_data = pd.read_csv(meta_data_csv_path)
         self.root_dir = root_dir
 
     def __len__(self):
@@ -22,7 +24,8 @@ class SyntheticImagesDataset(Dataset):
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-        images = [cv2.imread(os.path.join(self.root_dir, self.meta_data.iloc[idx, i])) for i in range(0, 4)]
+        images = [cv2.imread(os.path.join(self.root_dir, self.meta_data.iloc[idx, i]))
+                  for i in range(0, 4)]
         rot1 = np.array([self.meta_data.iloc[idx, i] for i in range(4, 13)])
         translate1 = np.array([self.meta_data.iloc[idx, i] for i in range(13, 16)])
         rot2 = np.array([self.meta_data.iloc[idx, i] for i in range(16, 25)])
