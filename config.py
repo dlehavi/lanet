@@ -29,7 +29,7 @@ traindata_arg.add_argument('--image_shape', type=tuple, default=(240, 320),
                             help='')
 traindata_arg.add_argument('--jittering', type=tuple, default=(0.5, 0.5, 0.2, 0.05),
                             help='')
-traindata_arg.add_argument('--image_pairs_meta_data_csv_file', type-str, default='',
+traindata_arg.add_argument('--image_pairs_meta_data_csv_file', type=str, default='',
                            help='# use pairs of images with known locations')
 traindata_arg.add_argument('--intrinsic_cam_matrix', type=tuple, default=(0.0, 0.0, 0.0, 0.0),
                            help='# fx, fy, cx, cy')

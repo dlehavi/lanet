@@ -63,7 +63,7 @@ def spatial_augment_sample(sample):
         transforms.RandomVerticalFlip(p=0.5),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomAffine(15, translate=(0.1, 0.1), scale=(0.9, 1.1))
-        
+
     ])
     sample['image'] = augment_image(sample['image'])
 
@@ -130,7 +130,7 @@ def sample_homography(
 
     if rotation:
         angles = np.linspace(-max_angle, max_angle, n_angles)
-        angles = np.concatenate([[0.], angles], axis=0) 
+        angles = np.concatenate([[0.], angles], axis=0)
 
         center = np.mean(pts2, axis=0, keepdims=True)
         rot_mat = np.reshape(np.stack([np.cos(angles), -np.sin(angles), np.sin(angles),
@@ -212,9 +212,9 @@ def add_noise(img, mode="gaussian", percent=0.02):
 
         if img.dtype not in [np.float32, np.float64]:
             gauss = gauss * np.iinfo(img.dtype).max
-            img = np.clip(img.astype(np.float) + gauss, 0, np.iinfo(img.dtype).max)
+            img = np.clip(img.astype(np.float32) + gauss, 0, np.iinfo(img.dtype).max)
         else:
-            img = np.clip(img.astype(np.float) + gauss, 0, 1)
+            img = np.clip(img.astype(np.float32) + gauss, 0, 1)
 
     elif mode == "salt":
         print(img.dtype)
@@ -278,9 +278,9 @@ def non_spatial_augmentation(img_warp_ori, jitter_paramters, color_order=[0,1,2]
         img_warp_sub = img_warp_ori[b].cpu()
         img_warp_sub = torchvision.transforms.functional.to_pil_image(img_warp_sub)
 
-        img_warp_sub_np = np.array(img_warp_sub) 
+        img_warp_sub_np = np.array(img_warp_sub)
         img_warp_sub_np = img_warp_sub_np[:,:,color_order]
-        
+
         if np.random.rand() > 0.5:
             img_warp_sub_np = add_noise(img_warp_sub_np)
 
@@ -288,7 +288,7 @@ def non_spatial_augmentation(img_warp_ori, jitter_paramters, color_order=[0,1,2]
         kernel_size = kernel_sizes[rand_index]
         if kernel_size >0:
             img_warp_sub_np = cv2.GaussianBlur(img_warp_sub_np, (kernel_size, kernel_size), sigmaX=0)
-        
+
         if to_gray:
             img_warp_sub_np = cv2.cvtColor(img_warp_sub_np, cv2.COLOR_RGB2GRAY)
             img_warp_sub_np = cv2.cvtColor(img_warp_sub_np, cv2.COLOR_GRAY2RGB)
@@ -308,11 +308,11 @@ def ha_augment_sample(data, jitter_paramters=[0.5, 0.5, 0.2, 0.05], patch_ratio=
     input_img = data['image'].unsqueeze(0)
     _, _, H, W = input_img.shape
     device = input_img.device
-    
+
     homography = torch.from_numpy(
-        sample_homography([H, W], 
-        patch_ratio=patch_ratio, 
-        scaling_amplitude=scaling_amplitude, 
+        sample_homography([H, W],
+        patch_ratio=patch_ratio,
+        scaling_amplitude=scaling_amplitude,
         max_angle=max_angle)).float().to(device)
     homography_inv = torch.inverse(homography)
 

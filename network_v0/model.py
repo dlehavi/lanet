@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import torchvision.transforms as tvf
 
-from modules import InterestPointModule, CorrespondenceModule
+from .modules import InterestPointModule, CorrespondenceModule
 
 def warp_homography_batch(sources, homographies):
     """

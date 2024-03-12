@@ -14,7 +14,7 @@ def main(config):
     torch.manual_seed(config.seed)
     if config.use_gpu:
         torch.cuda.manual_seed(config.seed)
-    if config.image_pairs_meta_data_csv_file != '':
+    if config.image_pairs_meta_data_csv_file == '':
         # instantiate train data loaders
         train_loader = get_data_loader(config=config)
     else:
